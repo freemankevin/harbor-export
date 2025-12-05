@@ -64,6 +64,8 @@ python app.py
 
 服务将在 `http://localhost:5001` 启动
 
+前端开发代理已配置（`/api` 指向后端），可配合前端一起联调。
+
 ### 4. 查看 API 文档
 
 访问 `http://localhost:5001/api/docs` 查看完整的 API 文档
@@ -96,6 +98,7 @@ LOG_LEVEL=INFO
 - `DOCKER_TIMEOUT`: Docker 操作超时时间（默认 600 秒）
 - `LOG_LEVEL`: 日志级别（DEBUG/INFO/WARNING/ERROR）
 - `HARBOR_REQUEST_TIMEOUT`: Harbor API 请求超时（默认 30 秒）
+ - `HARBOR_API_VERSION`: Harbor API 版本（默认 v2.0）
 
 
 ## 📝 开发说明
@@ -113,9 +116,13 @@ LOG_LEVEL=INFO
    - 友好的错误提示
 
 3. **日志系统**
-   - 控制台 + 文件双重输出
+   - 控制台 + 文件双重输出（敏感信息自动过滤）
    - 自动日志轮转
    - 详细的调试信息
+
+4. **操作日志**
+   - `POST /api/system/record` 记录结构化操作日志（屏蔽密码）
+   - `GET /api/system/operations` 查询操作日志（支持按 operator 过滤）
 
 ### 扩展开发
 

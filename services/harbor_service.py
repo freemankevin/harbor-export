@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from urllib.parse import urlparse, quote
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from config import Config
@@ -19,6 +21,11 @@ class HarborService:
         self.password = password
         self.headers = get_auth_header(username, password)
         self.api_base = f"{self.harbor_url}/api/{Config.HARBOR_API_VERSION}"
+        self.session = requests.Session()
+        retry = Retry(total=3, backoff_factor=0.5, status_forcelist=[429, 500, 502, 503, 504], allowed_methods=["GET", "POST"])
+        adapter = HTTPAdapter(max_retries=retry)
+        self.session.mount('http://', adapter)
+        self.session.mount('https://', adapter)
     
     def _request(self, method, endpoint, **kwargs):
         """统一请求方法"""
@@ -29,7 +36,7 @@ class HarborService:
         
         try:
             logger.info(f"{method.upper()} {url}")
-            response = requests.request(method, url, **kwargs)
+            response = self.session.request(method, url, **kwargs)
             response.raise_for_status()
             return response.json() if response.content else None
         except requests.exceptions.HTTPError as e:
@@ -94,7 +101,7 @@ class HarborService:
     def get_artifacts(self, project_name, repo_name, page=1, page_size=100):
         """获取 artifacts 列表"""
         # URL 编码仓库名
-        encoded_repo = quote(repo_name.split('/')[-1], safe='')
+        encoded_repo = quote(repo_name, safe='')
         params = {'page': page, 'page_size': page_size, 'with_tag': True}
         
         artifacts = self._request(
@@ -115,6 +122,20 @@ class HarborService:
             })
         
         return result
+
+    def get_all_artifacts(self, project_name, repo_name, page_size=100):
+        """分页获取所有 artifacts 并聚合标签"""
+        page = 1
+        all_items = []
+        while True:
+            items = self.get_artifacts(project_name, repo_name, page=page, page_size=page_size)
+            if not items:
+                break
+            all_items.extend(items)
+            if len(items) < page_size:
+                break
+            page += 1
+        return all_items
     
     def search_repositories(self, query, page=1, page_size=50):
         """搜索仓库"""

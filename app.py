@@ -11,6 +11,7 @@ import sys
 from api.harbor import harbor_bp
 from api.docker import docker_bp
 from api.system import system_bp
+from api.auth import auth_bp
 
 # 初始化日志
 logger = setup_logger('app')
@@ -34,6 +35,7 @@ def create_app(config_class=Config):
     })
     
     # 注册蓝图
+    app.register_blueprint(auth_bp)
     app.register_blueprint(harbor_bp)
     app.register_blueprint(docker_bp)
     app.register_blueprint(system_bp)
@@ -62,6 +64,14 @@ def create_app(config_class=Config):
         """记录请求信息"""
         if request.method != 'OPTIONS':  # 忽略 OPTIONS 请求
             logger.info(f"{request.method} {request.path} - {request.remote_addr}")
+        if request.path.startswith('/api/') and not request.path.startswith('/api/auth') and request.method != 'OPTIONS':
+            from utils.auth_session import require_login
+            def passthrough():
+                return None
+            guard = require_login(passthrough)
+            res = guard()
+            if res is not None:
+                return res
     
     # 请求后处理
     @app.after_request

@@ -2,6 +2,7 @@ from flask import Blueprint, request
 from services.harbor_service import HarborService
 from utils.response import success_response, error_response
 from utils.auth import require_harbor_config
+from utils.auth_session import require_login
 from utils.logger import setup_logger
 
 logger = setup_logger('api_harbor')
@@ -9,6 +10,7 @@ logger = setup_logger('api_harbor')
 harbor_bp = Blueprint('harbor', __name__, url_prefix='/api/harbor')
 
 @harbor_bp.route('/test-connection', methods=['POST'])
+@require_login
 @require_harbor_config
 def test_connection():
     """测试 Harbor 连接"""
@@ -34,6 +36,7 @@ def test_connection():
         return error_response(str(e), 500)
 
 @harbor_bp.route('/projects', methods=['POST'])
+@require_login
 @require_harbor_config
 def get_projects():
     """获取项目列表"""
@@ -56,6 +59,7 @@ def get_projects():
         return error_response(str(e), 500)
 
 @harbor_bp.route('/projects/<project_name>', methods=['POST'])
+@require_login
 @require_harbor_config
 def get_project_detail(project_name):
     """获取项目详情"""
@@ -75,6 +79,7 @@ def get_project_detail(project_name):
         return error_response(str(e), 500)
 
 @harbor_bp.route('/repositories', methods=['POST'])
+@require_login
 @require_harbor_config
 def get_repositories():
     """获取仓库列表"""
@@ -97,8 +102,11 @@ def get_repositories():
         
         # 获取每个仓库的 artifacts (tags)
         for repo in repositories:
-            repo_name = repo['name'].split('/')[-1]
-            artifacts = service.get_artifacts(project, repo_name)
+            full_name = repo['name']  # 形如: project/dev/tgy-ui-amd64
+            parts = full_name.split('/')
+            # 去掉项目前缀，保留项目内的子路径
+            repo_path = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+            artifacts = service.get_all_artifacts(project, repo_path)
             repo['artifacts'] = artifacts
             repo['tags'] = []
             for artifact in artifacts:
@@ -112,6 +120,7 @@ def get_repositories():
         return error_response(str(e), 500)
 
 @harbor_bp.route('/search', methods=['POST'])
+@require_login
 @require_harbor_config
 def search_repositories():
     """搜索仓库"""
