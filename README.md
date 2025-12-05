@@ -1,93 +1,417 @@
-# harbor-export
+# Harbor EXPORT
 
+一个功能强大的 Harbor 镜像管理和下载工具后端服务。
 
-
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## 📁 项目结构
 
 ```
-cd existing_repo
-git remote add origin http://10.0.1.250:9090/liuxing/harbor-export.git
-git branch -M main
-git push -uf origin main
+harbor-export/
+├── app.py                      # 主应用入口
+├── config.py                   # 配置文件
+├── requirements.txt            # Python 依赖
+├── .env                        # 环境变量（可选）
+├── api/                        # API 路由层
+│   ├── __init__.py
+│   ├── harbor.py              # Harbor API 接口
+│   ├── docker.py              # Docker 操作接口
+│   └── system.py              # 系统管理接口
+├── services/                   # 服务层
+│   ├── __init__.py
+│   ├── harbor_service.py      # Harbor 业务逻辑
+│   └── docker_service.py      # Docker 业务逻辑
+├── utils/                      # 工具函数
+│   ├── __init__.py
+│   ├── logger.py              # 日志工具
+│   ├── auth.py                # 认证工具
+│   └── response.py            # 响应格式化
+├── logs/                       # 日志目录
+├── temp/                       # 临时文件
+└── downloads/                  # 下载文件
 ```
 
-## Integrate with your tools
+## 🚀 快速开始
 
-- [ ] [Set up project integrations](http://10.0.1.250:9090/liuxing/harbor-export/-/settings/integrations)
+### 1. 环境要求
 
-## Collaborate with your team
+- Python 3.8+
+- Docker (需要启动 Docker 守护进程)
+- 可访问的 Harbor 仓库
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+### 2. 安装依赖
 
-## Test and Deploy
+```bash
+# 创建虚拟环境
+python -m venv venv
 
-Use the built-in continuous integration in GitLab.
+# 激活虚拟环境
+# Linux/Mac:
+source venv/bin/activate
+# Windows:
+venv\Scripts\activate
+# GIT BASH
+source venv/Scripts/activate
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
 
-***
+# 安装依赖
+pip install -r requirements.txt
+```
 
-# Editing this README
+### 3. 启动服务
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+```bash
+python app.py
+```
 
-## Suggestions for a good README
+服务将在 `http://localhost:5000` 启动
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+### 4. 查看 API 文档
 
-## Name
-Choose a self-explaining name for your project.
+访问 `http://localhost:5000/api/docs` 查看完整的 API 文档
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## 📚 API 接口说明
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+### Harbor 相关接口
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+#### 1. 测试连接
+```http
+POST /api/harbor/test-connection
+Content-Type: application/json
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345"
+}
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+**响应示例：**
+```json
+{
+  "success": true,
+  "message": "连接成功，找到 3 个项目",
+  "data": {
+    "projects": [
+      {
+        "project_id": 1,
+        "name": "bj-tgy",
+        "public": false,
+        "repo_count": 4,
+        "created": "2025-01-15T10:30:00Z"
+      }
+    ]
+  }
+}
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+#### 2. 获取项目列表
+```http
+POST /api/harbor/projects
+Content-Type: application/json
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345",
+  "page": 1,
+  "pageSize": 100
+}
+```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+#### 3. 获取项目详情
+```http
+POST /api/harbor/projects/{project_name}
+Content-Type: application/json
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345"
+}
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+#### 4. 获取仓库列表
+```http
+POST /api/harbor/repositories
+Content-Type: application/json
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345",
+  "project": "bj-tgy",
+  "page": 1,
+  "pageSize": 100
+}
+```
 
-## License
-For open source projects, say how it is licensed.
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "repositories": [
+      {
+        "id": 1,
+        "name": "bj-tgy/dev/outer-net-mq-service-arm64",
+        "project_name": "bj-tgy",
+        "artifact_count": 2,
+        "pull_count": 10,
+        "tags": ["latest", "v1.0.0"],
+        "artifacts": [
+          {
+            "digest": "sha256:abc123...",
+            "tags": ["latest"],
+            "size": 257698304,
+            "push_time": "2025-02-14T16:58:00Z"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+#### 5. 搜索仓库
+```http
+POST /api/harbor/search
+Content-Type: application/json
+
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345",
+  "query": "nginx"
+}
+```
+
+#### 6. 获取系统信息
+```http
+POST /api/harbor/system-info
+Content-Type: application/json
+
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345"
+}
+```
+
+#### 7. 获取统计信息
+```http
+POST /api/harbor/statistics
+Content-Type: application/json
+
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345"
+}
+```
+
+### Docker 相关接口
+
+#### 1. 检查 Docker 连接
+```http
+GET /api/docker/ping
+```
+
+#### 2. 下载镜像
+```http
+POST /api/docker/download
+Content-Type: application/json
+
+{
+  "harborUrl": "https://10.3.2.40",
+  "username": "admin",
+  "password": "Harbor12345",
+  "image": "bj-tgy/dev/outer-net-mq-service-arm64",
+  "tag": "latest"
+}
+```
+
+**响应：** 直接返回 `.tar.gz` 文件流
+
+#### 3. 获取本地镜像
+```http
+GET /api/docker/local-images
+```
+
+#### 4. 删除本地镜像
+```http
+POST /api/docker/remove-image
+Content-Type: application/json
+
+{
+  "imageId": "sha256:abc123..."
+}
+```
+
+### 系统管理接口
+
+#### 1. 健康检查
+```http
+GET /api/system/health
+```
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "status": "healthy",
+    "docker": "connected"
+  }
+}
+```
+
+#### 2. 系统信息
+```http
+GET /api/system/info
+```
+
+**响应示例：**
+```json
+{
+  "success": true,
+  "data": {
+    "cpu": {
+      "percent": 25.5,
+      "count": 8
+    },
+    "memory": {
+      "total": 17179869184,
+      "available": 8589934592,
+      "percent": 50.0,
+      "used": 8589934592
+    },
+    "disk": {
+      "total": 500000000000,
+      "used": 250000000000,
+      "free": 250000000000,
+      "percent": 50.0
+    },
+    "download_folder": {
+      "path": "/path/to/downloads",
+      "size": 1073741824
+    }
+  }
+}
+```
+
+#### 3. 清理临时文件
+```http
+POST /api/system/cleanup
+```
+
+#### 4. 获取日志
+```http
+GET /api/system/logs
+```
+
+## 🔧 配置说明
+
+### 环境变量配置
+
+创建 `.env` 文件：
+
+```env
+# Flask 配置
+SECRET_KEY=your-secret-key-here
+FLASK_DEBUG=True
+
+# CORS 配置
+CORS_ORIGINS=http://localhost:3000,http://localhost:8080
+
+# Docker 配置
+DOCKER_TIMEOUT=600
+
+# 日志配置
+LOG_LEVEL=INFO
+```
+
+### config.py 配置项
+
+- `MAX_CONTENT_LENGTH`: 最大上传文件大小（默认 16GB）
+- `DOCKER_TIMEOUT`: Docker 操作超时时间（默认 600 秒）
+- `LOG_LEVEL`: 日志级别（DEBUG/INFO/WARNING/ERROR）
+- `HARBOR_REQUEST_TIMEOUT`: Harbor API 请求超时（默认 30 秒）
+
+## 🎯 功能特性
+
+### Harbor 功能
+- ✅ 连接测试和认证
+- ✅ 获取项目列表和详情
+- ✅ 获取仓库列表和标签
+- ✅ 搜索仓库
+- ✅ 获取系统信息和统计
+- ✅ 支持分页查询
+- ✅ 完整的错误处理
+
+### Docker 功能
+- ✅ 自动登录 Harbor
+- ✅ 拉取镜像
+- ✅ 保存镜像为 tar
+- ✅ 自动压缩为 tar.gz
+- ✅ 保留完整镜像名称和标签
+- ✅ 管理本地镜像
+- ✅ 自动清理临时文件
+
+### 系统功能
+- ✅ 健康检查
+- ✅ 系统资源监控
+- ✅ 日志管理
+- ✅ 临时文件清理
+- ✅ 完整的日志记录
+
+## 📝 开发说明
+
+### 代码结构说明
+
+1. **分层架构**
+   - `api/`: 路由层，处理 HTTP 请求
+   - `services/`: 服务层，实现业务逻辑
+   - `utils/`: 工具层，提供通用功能
+
+2. **错误处理**
+   - 统一的响应格式
+   - 详细的错误日志
+   - 友好的错误提示
+
+3. **日志系统**
+   - 控制台 + 文件双重输出
+   - 自动日志轮转
+   - 详细的调试信息
+
+### 扩展开发
+
+#### 添加新的 API 接口
+
+1. 在 `api/` 目录创建新的蓝图
+2. 在 `services/` 实现业务逻辑
+3. 在 `app.py` 注册蓝图
+
+示例：
+```python
+# api/custom.py
+from flask import Blueprint
+from utils.response import success_response
+
+custom_bp = Blueprint('custom', __name__, url_prefix='/api/custom')
+
+@custom_bp.route('/hello', methods=['GET'])
+def hello():
+    return success_response(message='Hello World')
+
+# app.py
+from api.custom import custom_bp
+app.register_blueprint(custom_bp)
+```
+
+## ⚠️ 注意事项
+
+1. **Docker 依赖**: 服务器必须安装 Docker 并确保 Docker 守护进程运行
+2. **磁盘空间**: 下载大镜像需要足够的磁盘空间（建议至少 50GB）
+3. **网络访问**: 确保服务器可以访问 Harbor 仓库
+4. **自签名证书**: 代码中已设置 `verify=False`，如需验证证书请修改配置
+5. **权限问题**: 确保运行用户有权限访问 Docker socket
+

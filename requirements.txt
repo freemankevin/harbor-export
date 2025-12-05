@@ -1,0 +1,19 @@
+# Flask 核心
+Flask==3.0.0
+Flask-Cors==4.0.0
+flask-swagger-ui==5.21.0
+
+# HTTP 请求
+requests==2.31.0
+
+# Docker 操作
+docker==7.0.0
+
+# 系统监控
+psutil==5.9.6
+
+# 环境变量管理
+python-dotenv==1.0.0
+
+# HTTP 库
+urllib3==2.1.0
