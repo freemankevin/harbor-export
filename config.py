@@ -44,7 +44,7 @@ class Config:
     
     # 服务器配置
     SERVER_HOST = os.environ.get('SERVER_HOST', '0.0.0.0')
-    SERVER_PORT = int(os.environ.get('SERVER_PORT', 5000))
+    SERVER_PORT = int(os.environ.get('SERVER_PORT', 5001))
     SERVER_THREADED = os.environ.get('SERVER_THREADED', 'True').lower() == 'true'
     
     # 会话配置
