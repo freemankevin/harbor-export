@@ -72,7 +72,8 @@ def system_info():
             'download_folder': {
                 'path': Config.DOWNLOAD_FOLDER,
                 'size': download_dir_size
-            }
+            },
+            'harbor_api_version': Config.HARBOR_API_VERSION
         })
     except Exception as e:
         logger.error(f"获取系统信息失败: {str(e)}")
