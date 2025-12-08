@@ -4,7 +4,6 @@
 from flask import Blueprint
 from utils.response import success_response, error_response
 from utils.logger import setup_logger
-from utils.auth_session import require_login
 from utils.operation_logger import append as append_oplog, read_lines as read_oplog
 import psutil
 import os
@@ -31,7 +30,6 @@ def health_check():
         return error_response(str(e), 500)
 
 @system_bp.route('/info', methods=['GET'])
-@require_login
 def system_info():
     """系统信息"""
     try:
@@ -81,7 +79,6 @@ def system_info():
         return error_response(str(e), 500)
 
 @system_bp.route('/cleanup', methods=['POST'])
-@require_login
 def cleanup_temp_files():
     """清理临时文件"""
     try:
@@ -122,7 +119,6 @@ def cleanup_temp_files():
         return error_response(str(e), 500)
 
 @system_bp.route('/logs', methods=['GET'])
-@require_login
 def get_logs():
     """获取最新日志"""
     try:
@@ -140,7 +136,6 @@ def get_logs():
         return error_response(str(e), 500)
 
 @system_bp.route('/record', methods=['POST'])
-@require_login
 def record_operation():
     try:
         from flask import request
@@ -161,7 +156,6 @@ def record_operation():
         return error_response(str(e), 500)
 
 @system_bp.route('/operations', methods=['GET'])
-@require_login
 def list_operations():
     try:
         from flask import request

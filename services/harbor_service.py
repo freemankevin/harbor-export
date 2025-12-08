@@ -16,7 +16,11 @@ class HarborService:
     """Harbor 服务类"""
     
     def __init__(self, harbor_url, username, password):
-        self.harbor_url = harbor_url.rstrip('/')
+        # 允许传入不带协议的地址，默认 https
+        url = (harbor_url or '').strip()
+        if not url.startswith('http://') and not url.startswith('https://'):
+            url = 'https://' + url
+        self.harbor_url = url.rstrip('/')
         self.username = username
         self.password = password
         self.headers = get_auth_header(username, password)
@@ -71,7 +75,9 @@ class HarborService:
     
     def get_project_detail(self, project_name):
         """获取项目详情"""
-        project = self._request('GET', f'/projects/{project_name}')
+        from urllib.parse import quote
+        encoded_project = quote(project_name, safe='')
+        project = self._request('GET', f'/projects/{encoded_project}')
         return {
             'project_id': project.get('project_id'),
             'name': project.get('name'),
@@ -85,9 +91,19 @@ class HarborService:
     
     def get_repositories(self, project_name, page=1, page_size=100):
         """获取仓库列表"""
+        from urllib.parse import quote
         params = {'page': page, 'page_size': page_size}
-        repos = self._request('GET', f'/projects/{project_name}/repositories', params=params)
-        
+        encoded_project = quote(project_name, safe='')
+        try:
+            repos = self._request('GET', f'/projects/{encoded_project}/repositories', params=params)
+        except Exception as e:
+            if '404' in str(e):
+                # 某些环境需要使用 project_id
+                detail = self.get_project_detail(project_name)
+                pid = detail.get('project_id')
+                repos = self._request('GET', f'/projects/{pid}/repositories', params=params)
+            else:
+                raise
         return [{
             'id': r.get('id'),
             'name': r.get('name'),
@@ -99,16 +115,18 @@ class HarborService:
         } for r in repos]
     
     def get_artifacts(self, project_name, repo_name, page=1, page_size=100):
-        """获取 artifacts 列表"""
-        # URL 编码仓库名
-        encoded_repo = quote(repo_name, safe='')
         params = {'page': page, 'page_size': page_size, 'with_tag': True}
-        
-        artifacts = self._request(
-            'GET',
-            f'/projects/{project_name}/repositories/{encoded_repo}/artifacts',
-            params=params
-        )
+        encoded_repo = quote(repo_name, safe='')
+        try:
+            artifacts = self._request('GET', f'/projects/{project_name}/repositories/{encoded_repo}/artifacts', params=params)
+        except Exception as e:
+            if '404' in str(e):
+                parts = repo_name.split('/')
+                stripped = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+                encoded_alt = quote(stripped, safe='')
+                artifacts = self._request('GET', f'/projects/{project_name}/repositories/{encoded_alt}/artifacts', params=params)
+            else:
+                raise
         
         result = []
         for artifact in artifacts:

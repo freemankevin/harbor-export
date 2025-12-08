@@ -6,13 +6,6 @@ def setup_logger(name='harbor-backend'):
     """配置日志器"""
     logger = logging.getLogger(name)
     logger.setLevel(getattr(logging, Config.LOG_LEVEL))
-    class SensitiveFilter(logging.Filter):
-        def filter(self, record: logging.LogRecord) -> bool:
-            msg = str(record.getMessage())
-            for key in ('password', 'Authorization'):
-                if key in msg:
-                    record.msg = msg.replace(key, f"{key}***")
-            return True
     
     # 控制台处理器
     console_handler = logging.StreamHandler()
@@ -21,7 +14,6 @@ def setup_logger(name='harbor-backend'):
         '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     console_handler.setFormatter(console_formatter)
-    console_handler.addFilter(SensitiveFilter())
     
     # 文件处理器
     file_handler = RotatingFileHandler(
@@ -34,7 +26,6 @@ def setup_logger(name='harbor-backend'):
         '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s'
     )
     file_handler.setFormatter(file_formatter)
-    file_handler.addFilter(SensitiveFilter())
     
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)

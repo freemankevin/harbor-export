@@ -2,7 +2,6 @@ from flask import Blueprint, send_file, request
 from services.docker_service import DockerService
 from utils.response import success_response, error_response
 from utils.auth import require_harbor_config
-from utils.auth_session import require_login
 from utils.logger import setup_logger
 import os
 
@@ -34,7 +33,6 @@ def ping():
         return error_response(str(e), 500)
 
 @docker_bp.route('/download', methods=['POST'])
-@require_login
 @require_harbor_config
 def download_image():
     """下载镜像"""
@@ -73,7 +71,6 @@ def download_image():
         return error_response(str(e), 500)
 
 @docker_bp.route('/local-images', methods=['GET'])
-@require_login
 def get_local_images():
     """获取本地镜像列表"""
     try:
@@ -85,7 +82,6 @@ def get_local_images():
         return error_response(str(e), 500)
 
 @docker_bp.route('/remove-image', methods=['POST'])
-@require_login
 def remove_image():
     """删除本地镜像"""
     try:
