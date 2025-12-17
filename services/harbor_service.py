@@ -115,19 +115,54 @@ class HarborService:
         } for r in repos]
     
     def get_artifacts(self, project_name, repo_name, page=1, page_size=100):
-        params = {'page': page, 'page_size': page_size, 'with_tag': True}
-        encoded_repo = quote(repo_name, safe='')
+        params = {'page': page, 'page_size': page_size, 'with_tag': 'true'}
+        encoded_project = quote(project_name, safe='')
+        encoded_repo = quote(repo_name, safe='/')
+        # 1) 优先使用项目名 + 完整仓库路径
         try:
-            artifacts = self._request('GET', f'/projects/{project_name}/repositories/{encoded_repo}/artifacts', params=params)
-        except Exception as e:
-            if '404' in str(e):
+            artifacts = self._request('GET', f'/projects/{encoded_project}/repositories/{encoded_repo}/artifacts', params=params)
+        except Exception as e1:
+            artifacts = []
+            if '404' in str(e1):
+                # 2) 404 时尝试去除项目名前缀的仓库路径
                 parts = repo_name.split('/')
                 stripped = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
-                encoded_alt = quote(stripped, safe='')
-                artifacts = self._request('GET', f'/projects/{project_name}/repositories/{encoded_alt}/artifacts', params=params)
-            else:
-                raise
-        
+                encoded_alt_repo = quote(stripped, safe='/')
+                try:
+                    artifacts = self._request('GET', f'/projects/{encoded_project}/repositories/{encoded_alt_repo}/artifacts', params=params)
+                except Exception as e2:
+                    artifacts = []
+        # 若依然为空，先尝试完整仓库路径不编码（兼容部分部署）
+        if not artifacts:
+            try:
+                artifacts = self._request('GET', f'/projects/{encoded_project}/repositories/{repo_name}/artifacts', params=params)
+            except Exception:
+                pass
+        # 若仍为空，再尝试去项目前缀的仓库路径不编码
+        if not artifacts:
+            parts = repo_name.split('/')
+            stripped = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+            try:
+                artifacts = self._request('GET', f'/projects/{encoded_project}/repositories/{stripped}/artifacts', params=params)
+            except Exception:
+                pass
+        # 若到此仍为空，尝试使用 project_id 路径（完整和去前缀）
+        if not artifacts:
+            detail = self.get_project_detail(project_name)
+            pid = detail.get('project_id')
+            try:
+                artifacts = self._request('GET', f'/projects/{pid}/repositories/{encoded_repo}/artifacts', params=params)
+            except Exception as e3:
+                artifacts = []
+            if not artifacts:
+                parts = repo_name.split('/')
+                stripped = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+                encoded_alt_repo = quote(stripped, safe='/')
+                try:
+                    artifacts = self._request('GET', f'/projects/{pid}/repositories/{encoded_alt_repo}/artifacts', params=params)
+                except Exception:
+                    artifacts = []
+
         result = []
         for artifact in artifacts:
             tags = [tag['name'] for tag in artifact.get('tags', [])] or ['<none>']
@@ -181,6 +216,23 @@ class HarborService:
             'auth_mode': info.get('auth_mode'),
             'project_creation_restriction': info.get('project_creation_restriction')
         }
+    
+    def get_registry_tags(self, repo_name):
+        """直接通过 Registry v2 接口获取 tags 列表，作为 API 失败时的回退"""
+        url = f"{self.harbor_url}/v2/{repo_name}/tags/list"
+        try:
+            logger.info(f"GET {url}")
+            resp = self.session.get(url, headers=self.headers, verify=False, timeout=Config.HARBOR_REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json() or {}
+            tags = data.get('tags') or []
+            return tags
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Registry HTTP Error: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Harbor Registry 错误: {e.response.status_code}")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Registry Request Error: {str(e)}")
+            raise Exception(f"网络请求失败: {str(e)}")
     
     def get_statistics(self):
         """获取统计信息"""

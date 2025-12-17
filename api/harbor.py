@@ -112,19 +112,45 @@ def get_repository_tags():
         if not project or not repo_full_name:
             return error_response('缺少参数', 400)
         service = HarborService(data['harborUrl'], data['username'], data['password'])
-        try:
-            artifacts = service.get_all_artifacts(project, repo_full_name)
-        except Exception as e:
-            if '404' in str(e):
-                parts = repo_full_name.split('/')
-                repo_path = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
-                artifacts = service.get_all_artifacts(project, repo_path)
-            else:
-                raise
+        logger.info(f"[tags] req project={project} repo={repo_full_name}")
         tags = []
-        for a in artifacts:
-            tags.extend(a.get('tags', []))
-        tags = list(set(tags))
+        try:
+            tags = service.get_registry_tags(repo_full_name)
+        except Exception:
+            tags = []
+        if not tags:
+            parts = repo_full_name.split('/')
+            repo_path = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+            try:
+                tags = service.get_registry_tags(repo_path)
+            except Exception:
+                tags = []
+        artifacts_count = 0
+        if not tags:
+            # 先用完整仓库名取 artifacts
+            try:
+                artifacts = service.get_all_artifacts(project, repo_full_name)
+                artifacts_count = len(artifacts)
+                for a in artifacts:
+                    tags.extend(a.get('tags', []))
+            except Exception as e:
+                if '404' in str(e):
+                    artifacts = []
+                else:
+                    artifacts = []
+            # 若仍为空，尝试去前缀仓库路径
+            if not tags:
+                try:
+                    parts = repo_full_name.split('/')
+                    repo_path = '/'.join(parts[1:]) if len(parts) > 1 else parts[0]
+                    artifacts2 = service.get_all_artifacts(project, repo_path)
+                    artifacts_count = max(artifacts_count, len(artifacts2))
+                    for a in artifacts2:
+                        tags.extend(a.get('tags', []))
+                except Exception:
+                    pass
+            tags = list(set(tags))
+        logger.info(f"[tags] artifacts={artifacts_count} tags={len(tags)}")
         return success_response(data={'tags': tags})
     except Exception as e:
         logger.error(f"获取仓库标签失败: {str(e)}")
