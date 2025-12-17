@@ -141,14 +141,14 @@ def create_app(config_class=Config):
 
 def check_dependencies():
     """检查依赖项"""
-    logger.info("检查系统依赖...")
+    logger.info("Checking system dependencies...")
     
     # 检查 Docker
     try:
         import docker
         client = docker.from_env()
         client.ping()
-        logger.info("✓ Docker 连接正常")
+        logger.info("Docker connection OK")
         return True
     except Exception as e:
         logger.error(f"✗ Docker 连接失败: {str(e)}")
@@ -179,25 +179,21 @@ app = create_app()
 
 if __name__ == '__main__':
     try:
-        # 打印启动横幅
-        print_startup_banner()
-        
-        # 检查依赖
-        if not check_dependencies():
-            logger.warning("依赖检查失败，但仍尝试启动服务...")
-        
-        # 禁用 SSL 警告（仅用于开发环境）
-        import urllib3
-        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        
-        logger.info("=" * 70)
-        logger.info("Harbor 镜像下载工具后端服务启动")
-        logger.info("=" * 70)
-        logger.info(f"Debug 模式: {Config.DEBUG}")
-        logger.info(f"监听地址: 0.0.0.0:5001")
-        logger.info(f"API 文档: http://localhost:5001/api/docs")
-        logger.info(f"CORS 允许来源: {Config.CORS_ORIGINS}")
-        logger.info("=" * 70)
+        should_print = (not Config.DEBUG) or (os.environ.get('WERKZEUG_RUN_MAIN') == 'true')
+        if should_print:
+            print_startup_banner()
+            if not check_dependencies():
+                logger.warning("依赖检查失败，但仍尝试启动服务...")
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+            logger.info("=" * 70)
+            logger.info("Harbor backend service started")
+            logger.info("=" * 70)
+            logger.info(f"Debug mode: {Config.DEBUG}")
+            logger.info("Listening on 0.0.0.0:5001")
+            logger.info("API docs: http://localhost:5001/api/docs")
+            logger.info(f"CORS origins: {Config.CORS_ORIGINS}")
+            logger.info("=" * 70)
         
         # 启动应用
         app.run(

@@ -105,12 +105,16 @@ class ProductionConfig(Config):
     
     # 生产环境必须设置 SECRET_KEY
     SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        raise ValueError("生产环境必须设置 SECRET_KEY 环境变量")
-    
-    # 生产环境必须指定具体的 CORS 来源
-    if Config.CORS_ORIGINS == '*':
-        raise ValueError("生产环境不能使用 CORS_ORIGINS=*，必须指定具体域名")
+
+    @staticmethod
+    def init_app(app):
+        # 先执行基类目录初始化，避免日志目录不存在
+        Config.init_app(app)
+        # 仅在实际启用生产配置时校验严格要求
+        if not ProductionConfig.SECRET_KEY:
+            raise ValueError("生产环境必须设置 SECRET_KEY 环境变量")
+        if Config.CORS_ORIGINS == '*':
+            raise ValueError("生产环境不能使用 CORS_ORIGINS=*，必须指定具体域名")
 
 
 # 配置字典
