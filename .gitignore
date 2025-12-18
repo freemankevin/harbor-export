@@ -24,6 +24,7 @@ htmlcov/
 logs/
 downloads/
 temp/
+data/
 *.log
 *.tar
 *.tar.gz

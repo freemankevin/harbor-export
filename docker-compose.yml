@@ -1,0 +1,25 @@
+# version: "3.8"
+services:
+  harbor-export:
+    image: freelabspace/harbor-export:latest
+    container_name: harbor-export
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      - SECRET_KEY=9f8e7d6c5b4a3920f1e8d7c6b5a4938271f0e9d8c7b6a5f4938271f0e9d8c7b6
+      - FLASK_DEBUG=false
+      - CORS_ORIGINS=*
+      - DOCKER_TIMEOUT=600
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data/logs:/app/logs
+      - ./data/downloads:/app/downloads
+      - ./data/temp:/app/temp
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/system/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
