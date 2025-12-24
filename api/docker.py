@@ -98,3 +98,67 @@ def remove_image():
     except Exception as e:
         logger.error(f"删除镜像失败: {str(e)}")
         return error_response(str(e), 500)
+
+@docker_bp.route('/upload', methods=['POST'])
+def upload_image():
+    """上传镜像到 Harbor"""
+    temp_file_path = None
+    
+    try:
+        if 'file' not in request.files:
+            return error_response('缺少文件', 400)
+        
+        file = request.files['file']
+        if file.filename == '':
+            return error_response('文件名为空', 400)
+        
+        if not file.filename.endswith(('.tar', '.tar.gz')):
+            return error_response('只支持 .tar 或 .tar.gz 格式的镜像文件', 400)
+        
+        harbor_url = request.form.get('harborUrl')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        project = request.form.get('project')
+        
+        if not all([harbor_url, username, password, project]):
+            return error_response('缺少必要参数: harborUrl, username, password, project', 400)
+        
+        from urllib.parse import urlparse
+        url = str(harbor_url).strip()
+        if url.lower() == 'string':
+            return error_response('harborUrl 不能为示例值，请填写真实地址', 400)
+        parsed = urlparse(url if url.startswith('http') else 'https://' + url)
+        if not parsed.scheme or not parsed.netloc:
+            return error_response('harborUrl 格式错误，请使用形如 https://host 的地址', 400)
+        
+        from config import Config
+        os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)
+        
+        temp_file_path = os.path.join(Config.UPLOAD_FOLDER, file.filename)
+        logger.info(f"保存上传文件到: {temp_file_path}")
+        file.save(temp_file_path)
+        
+        service = get_docker_service()
+        result = service.upload_image(
+            harbor_url,
+            username,
+            password,
+            project,
+            temp_file_path
+        )
+        
+        return success_response(
+            data=result,
+            message=f"镜像上传成功，共上传 {len(result['uploaded_images'])} 个镜像"
+        )
+        
+    except Exception as e:
+        logger.error(f"上传镜像失败: {str(e)}")
+        return error_response(str(e), 500)
+    finally:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                logger.info(f"已清理临时文件: {temp_file_path}")
+            except Exception as e:
+                logger.warning(f"清理临时文件失败: {str(e)}")

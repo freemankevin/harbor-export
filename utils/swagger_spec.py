@@ -196,6 +196,119 @@ SWAGGER_SPEC = {
                 }
             }
         },
+        "/docker/upload": {
+            "post": {
+                "tags": ["Docker"],
+                "summary": "上传镜像到 Harbor",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "file": {
+                                        "type": "string",
+                                        "format": "binary",
+                                        "description": "镜像文件 (.tar 或 .tar.gz)"
+                                    },
+                                    "harborUrl": {
+                                        "type": "string",
+                                        "example": "https://10.3.2.40"
+                                    },
+                                    "username": {
+                                        "type": "string",
+                                        "example": "admin"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "Harbor12345"
+                                    },
+                                    "project": {
+                                        "type": "string",
+                                        "example": "bj-tgy",
+                                        "description": "目标项目名称"
+                                    }
+                                },
+                                "required": ["file", "harborUrl", "username", "password", "project"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "上传成功",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {"type": "boolean"},
+                                        "message": {"type": "string"},
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "uploaded_images": {"type": "array"},
+                                                "target_registry": {"type": "string"},
+                                                "target_project": {"type": "string"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/harbor/check-upload-permission": {
+            "post": {
+                "tags": ["Harbor"],
+                "summary": "检查用户上传镜像权限",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "harborUrl": {"type": "string", "example": "https://10.3.2.40"},
+                                    "username": {"type": "string", "example": "admin"},
+                                    "password": {"type": "string", "example": "Harbor12345"},
+                                    "project": {"type": "string", "example": "bj-tgy", "description": "项目名称"}
+                                },
+                                "required": ["harborUrl", "username", "password", "project"]
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "有权限",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {"type": "boolean"},
+                                        "message": {"type": "string"},
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "has_permission": {"type": "boolean"},
+                                                "message": {"type": "string"},
+                                                "role_id": {"type": "integer"}
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {"description": "无权限"}
+                }
+            }
+        },
         "/system/health": {
             "get": {
                 "tags": ["System"],

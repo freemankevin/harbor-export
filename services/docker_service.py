@@ -140,3 +140,91 @@ class DockerService:
         except Exception as e:
             logger.error(f"删除镜像失败: {str(e)}")
             raise Exception(f"删除镜像失败: {str(e)}")
+    
+    def upload_image(self, harbor_url, username, password, target_project, tar_file_path):
+        """上传镜像到 Harbor"""
+        temp_dir = None
+        
+        try:
+            parsed = urlparse(harbor_url)
+            registry = parsed.netloc or parsed.path
+            
+            logger.info(f"开始上传镜像: {tar_file_path} 到 {registry}/{target_project}")
+            
+            self.login(registry, username, password)
+            
+            logger.info(f"正在加载镜像文件: {tar_file_path}")
+            with open(tar_file_path, 'rb') as f:
+                images = self.client.images.load(f)
+            
+            if not images:
+                raise Exception("无法从文件中加载镜像，请检查文件格式")
+            
+            uploaded_images = []
+            for image in images:
+                if not image.tags:
+                    raise Exception("镜像没有标签信息，无法上传。请使用 docker tag 命令为镜像添加标签后重新保存")
+                
+                original_tag = image.tags[0]
+                logger.info(f"原始镜像标签: {original_tag}")
+                
+                parts = original_tag.split('/')
+                if ':' in parts[-1]:
+                    image_name, tag = parts[-1].rsplit(':', 1)
+                else:
+                    image_name = parts[-1]
+                    tag = 'latest'
+                    logger.info(f"镜像没有标签，使用默认标签: latest")
+                
+                if not image_name:
+                    raise Exception("无法解析镜像名称，请检查镜像文件")
+                
+                new_tag = f"{registry}/{target_project}/{image_name}:{tag}"
+                logger.info(f"重新标记镜像: {original_tag} -> {new_tag}")
+                
+                image.tag(new_tag)
+                
+                logger.info(f"开始推送镜像: {new_tag}")
+                push_result = self.client.images.push(new_tag, stream=True, decode=True)
+                
+                for line in push_result:
+                    if 'error' in line:
+                        error_msg = line.get('error', '未知错误')
+                        if 'denied' in error_msg.lower() or 'unauthorized' in error_msg.lower():
+                            raise Exception(f"没有权限上传到项目 {target_project}，请检查用户权限")
+                        if 'name unknown' not in error_msg.lower():
+                            raise Exception(f"推送镜像失败: {error_msg}")
+                    if 'status' in line:
+                        status_msg = line.get('status', '')
+                        try:
+                            logger.info(f"推送进度: {status_msg}")
+                        except UnicodeEncodeError:
+                            logger.info(f"推送进度: [编码错误]")
+                
+                logger.info(f"镜像上传成功: {new_tag}")
+                uploaded_images.append({
+                    'original': original_tag,
+                    'uploaded': new_tag,
+                    'image_name': image_name,
+                    'tag': tag
+                })
+                
+                try:
+                    self.client.images.remove(new_tag, force=True)
+                    logger.info(f"已清理本地镜像: {new_tag}")
+                except Exception as e:
+                    logger.warning(f"清理本地镜像失败: {str(e)}")
+            
+            return {
+                'success': True,
+                'uploaded_images': uploaded_images,
+                'target_registry': registry,
+                'target_project': target_project
+            }
+            
+        except Exception as e:
+            logger.error(f"上传镜像失败: {str(e)}")
+            raise e
+        finally:
+            if temp_dir and os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)

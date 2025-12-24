@@ -217,3 +217,31 @@ def get_statistics():
     except Exception as e:
         logger.error(f"获取统计信息失败: {str(e)}")
         return error_response(str(e), 500)
+
+@harbor_bp.route('/check-upload-permission', methods=['POST'])
+@require_harbor_config
+def check_upload_permission():
+    """检查用户是否有上传镜像的权限"""
+    try:
+        data = request.get_json()
+        project = data.get('project')
+        
+        if not project:
+            return error_response('缺少 project 参数', 400)
+        
+        service = HarborService(
+            data['harborUrl'],
+            data['username'],
+            data['password']
+        )
+        
+        result = service.check_upload_permission(project)
+        
+        if result['has_permission']:
+            return success_response(data=result, message=result['message'])
+        else:
+            return error_response(result['message'], 403)
+        
+    except Exception as e:
+        logger.error(f"检查上传权限失败: {str(e)}")
+        return error_response(str(e), 500)

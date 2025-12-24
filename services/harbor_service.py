@@ -244,3 +244,70 @@ class HarborService:
             'total_repo_count': stats.get('total_repo_count', 0),
             'total_storage_consumption': stats.get('total_storage_consumption', 0)
         }
+    
+    def check_upload_permission(self, project_name):
+        """检查用户是否有上传镜像的权限"""
+        try:
+            encoded_project = quote(project_name, safe='')
+            project = self._request('GET', f'/projects/{encoded_project}')
+            
+            current_user_url = f"{self.api_base}/users/current"
+            try:
+                response = self.session.get(
+                    current_user_url,
+                    headers=self.headers,
+                    verify=False,
+                    timeout=Config.HARBOR_REQUEST_TIMEOUT
+                )
+                response.raise_for_status()
+                current_user = response.json()
+                username = current_user.get('username')
+            except Exception as e:
+                logger.warning(f"无法获取当前用户信息: {str(e)}")
+                username = self.username
+            
+            members_url = f'/projects/{encoded_project}/members'
+            try:
+                members = self._request('GET', members_url)
+            except Exception as e:
+                if '404' in str(e):
+                    pid = project.get('project_id')
+                    members = self._request('GET', f'/projects/{pid}/members')
+                else:
+                    raise
+            
+            user_role = None
+            for member in members:
+                member_name = member.get('entity_name')
+                if member_name == username:
+                    user_role = member.get('role_id')
+                    break
+            
+            if user_role is None:
+                is_public = project.get('metadata', {}).get('public') == 'true'
+                if not is_public:
+                    return {
+                        'has_permission': False,
+                        'message': f'您不是项目 {project_name} 的成员，无法上传镜像'
+                    }
+                else:
+                    return {
+                        'has_permission': False,
+                        'message': f'您不是项目 {project_name} 的成员，公开项目也需要成员权限才能上传镜像'
+                    }
+            
+            if user_role in [1, 2, 3]:
+                return {
+                    'has_permission': True,
+                    'message': '您有权限上传镜像到此项目',
+                    'role_id': user_role
+                }
+            else:
+                return {
+                    'has_permission': False,
+                    'message': f'您的角色权限不足，无法上传镜像到项目 {project_name}'
+                }
+                
+        except Exception as e:
+            logger.error(f"检查上传权限失败: {str(e)}")
+            raise Exception(f"检查上传权限失败: {str(e)}")
