@@ -187,26 +187,51 @@ class DockerService:
                 logger.info(f"开始推送镜像: {new_tag}")
                 push_result = self.client.images.push(new_tag, stream=True, decode=True)
                 
+                image_already_exists = False
+                push_error = None
+                
                 for line in push_result:
                     if 'error' in line:
                         error_msg = line.get('error', '未知错误')
-                        if 'denied' in error_msg.lower() or 'unauthorized' in error_msg.lower():
+                        error_lower = error_msg.lower()
+                        
+                        if 'denied' in error_lower or 'unauthorized' in error_lower:
                             raise Exception(f"没有权限上传到项目 {target_project}，请检查用户权限")
-                        if 'name unknown' not in error_msg.lower():
-                            raise Exception(f"推送镜像失败: {error_msg}")
+                        
+                        if 'already exists' in error_lower or 'blob already exists' in error_lower:
+                            logger.info(f"镜像层已存在，跳过: {error_msg}")
+                            image_already_exists = True
+                            continue
+                        
+                        if 'name unknown' in error_lower:
+                            logger.info(f"仓库不存在，Harbor 将自动创建")
+                            continue
+                        
+                        push_error = error_msg
+                        logger.warning(f"推送过程中出现错误: {error_msg}")
+                    
                     if 'status' in line:
                         status_msg = line.get('status', '')
+                        if 'Layer already exists' in status_msg or 'Mounted from' in status_msg:
+                            image_already_exists = True
                         try:
                             logger.info(f"推送进度: {status_msg}")
                         except UnicodeEncodeError:
                             logger.info(f"推送进度: [编码错误]")
                 
-                logger.info(f"镜像上传成功: {new_tag}")
+                if push_error and not image_already_exists:
+                    raise Exception(f"推送镜像失败: {push_error}")
+                
+                if image_already_exists:
+                    logger.info(f"镜像已存在或部分层已存在: {new_tag}")
+                else:
+                    logger.info(f"镜像上传成功: {new_tag}")
                 uploaded_images.append({
                     'original': original_tag,
                     'uploaded': new_tag,
                     'image_name': image_name,
-                    'tag': tag
+                    'tag': tag,
+                    'already_exists': image_already_exists
                 })
                 
                 try:
